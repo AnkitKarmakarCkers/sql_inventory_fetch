@@ -36,6 +36,25 @@ def process_sql_instances(sql_instances, credentials):
             metrics = {}
         
         settings = detailed_info.get('settings', {})
+        ip_config = settings.get('ipConfiguration', {})
+        
+        # Extract maintenance window information
+        maintenance_window = settings.get('maintenanceWindow', {})
+        maintenance_day = maintenance_window.get('day', 'Not specified')
+        maintenance_hour = maintenance_window.get('hour', 'Not specified')
+        maintenance_info = f"{maintenance_day} @ {maintenance_hour}:00" if maintenance_day != 'Not specified' else 'Not specified'
+        
+        # Extract authorized networks
+        authorized_networks = ip_config.get('authorizedNetworks', [])
+        auth_networks_str = ', '.join([network.get('value', '') for network in authorized_networks]) if authorized_networks else 'None'
+        
+        # Extract password policy information
+        password_validation_policy = settings.get('passwordValidationPolicy', {})
+        password_policy_enabled = 'Yes' if password_validation_policy.get('enablePasswordPolicy', False) else 'No'
+        
+        # Determine if password authentication is enabled
+        auth_settings = settings.get('userLabels', {}).get('auth_type', '').lower()
+        password_auth_enabled = 'No' if auth_settings == 'iam_only' else 'Yes'
         
         instance_info = {
             'name': instance_name,
@@ -51,7 +70,13 @@ def process_sql_instances(sql_instances, credentials):
             'state': detailed_info.get('state', ''),
             'create_time': detailed_info.get('createTime', ''),
             'public_ip': 'Yes' if any(ip.get('type') == 'PRIMARY' for ip in detailed_info.get('ipAddresses', [])) else 'No',
+            'private_ip': 'Yes' if any(ip.get('type') == 'PRIVATE' for ip in detailed_info.get('ipAddresses', [])) else 'No',
+            'authorized_networks': auth_networks_str,
             'cert_expiry': detailed_info.get('serverCaCert', {}).get('expirationTime', '') if detailed_info.get('serverCaCert') else '',
+            'maintenance_window': maintenance_info,
+            'password_policy_enabled': password_policy_enabled,
+            'password_auth_enabled': password_auth_enabled,
+            'deletion_protection': 'Yes' if detailed_info.get('deletionProtection', False) else 'No',
             'cpu_util': f"{metrics.get('database/cpu/utilization', 0):.4f}",
             'memory_util': f"{metrics.get('database/memory/utilization', 0):.4f}",
             'disk_util': f"{metrics.get('database/disk/utilization', 0):.4f}",
