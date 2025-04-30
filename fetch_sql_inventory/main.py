@@ -7,6 +7,7 @@ from credentials import get_credentials, list_accessible_projects
 from asset_search import search_sql_instances
 from sql_details import process_sql_instances
 from output import save_to_csv
+from sql_optimizer import optimize_sql_inventory  # Import optimizer function
 
 def main():
     # Path to your service account key file
@@ -15,7 +16,6 @@ def main():
     # Get credentials from service account file
     credentials = get_credentials(service_account_file)
     
-    # Determine the scope - you can use project, folder, or organization level
     print("Determining scope for asset search...")
     projects = list_accessible_projects(credentials)
     
@@ -24,20 +24,8 @@ def main():
         return
     
     print(f"Found {len(projects)} accessible projects.")
-    
     all_sql_instances = []
-    
-    # Uncomment one of these approaches based on your permissions:
-    
-    # Option 1: Organization-level scan (if you have org-level permissions)
-    # organization_id = "organizations/123456789"  # Replace with your org ID
-    # all_sql_instances = search_sql_instances(credentials, organization_id)
-    
-    # Option 2: Folder-level scan (if you have folder-level permissions)
-    # folder_id = "folders/123456789"  # Replace with your folder ID
-    # all_sql_instances = search_sql_instances(credentials, folder_id)
-    
-    # Option 3: Project-by-project scan (default)
+
     for project_id in projects:
         print(f"Scanning project: {project_id}")
         project_scope = f"projects/{project_id}"
@@ -48,13 +36,18 @@ def main():
             all_sql_instances.extend(sql_instances)
         else:
             print(f"  No Cloud SQL instances found in project {project_id}.")
-    
+
     if all_sql_instances:
         print(f"Processing details for {len(all_sql_instances)} SQL instances...")
         sql_details = process_sql_instances(all_sql_instances, credentials)
-        save_to_csv(sql_details, 'cloud_sql_inventory.csv')
-        print(f"Total Cloud SQL instances found: {len(sql_details)}")
-        print(f"Cloud SQL inventory has been saved to 'cloud_sql_inventory.csv'")
+        csv_path = 'cloud_sql_inventory.csv'
+        save_to_csv(sql_details, csv_path)
+        print(f"Cloud SQL inventory has been saved to '{csv_path}'")
+
+        # Now call the optimizer
+        print("Running SQL optimizer...")
+        optimize_sql_inventory(csv_path)
+        print("SQL optimization report generated.")
     else:
         print("No Cloud SQL instances found in any accessible projects.")
 
